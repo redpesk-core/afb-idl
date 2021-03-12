@@ -16,14 +16,14 @@
 # limitations under the License.
 ###########################################################################
 
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.10)
 
 project(afb-idl
-	DESCRIPTION "Interface Description Language for Micro-service Framawork"
-	HOMEPAGE_URL "https://github.com/redpesk-core/afb-idl"
+	DESCRIPTION "Interface Description Language and tools for Micro-service Framework"
 	VERSION 0.1
 	LANGUAGES C
 )
+set(HOMEPAGE_URL "https://github.com/redpesk-core/afb-idl")
 
 ###########################################################################
 
