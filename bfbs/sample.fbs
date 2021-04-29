@@ -1,0 +1,46 @@
+
+//namespace AFB;
+
+attribute "permission";
+
+enum id : ushort {
+	none = 0,
+	led1 = 101,
+	led2 = 102,
+	led3 = 103,
+	button1 = 401,
+	button2 = 402,
+	button3 = 403
+}
+
+rpc_service sample {
+	set(set_in): set_out (permission: "set");
+	get(get_in): get_out;
+	gset(set_in): tes;
+}
+
+table tes {
+	status: bool;
+}
+
+table set_in {
+	setters: [setter];
+}
+
+table set_out {
+	status: [bool];
+}
+
+table get_in {
+	ids: [id];
+}
+
+table get_out {
+	values: [ushort];
+}
+
+struct setter {
+	target: id;
+	value: ushort;
+}
+
