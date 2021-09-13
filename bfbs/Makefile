@@ -12,7 +12,7 @@ all: $(ALLTARGETS)
 # to keep intermid generated files
 .PRECIOUS: $(INTERMED)
 
-JQTYPES = '[.services[].calls[]|.request.name,.response.name]|unique|{"project_name": "$(BASE)", types:[{typename:.[]}]}'
+JQTYPES = '[.services[].calls[]|.request,.response]|unique|{"project_name": "$(BASE)", types:[.[]|{typename: .name, params :[{paramname: .fields[].name}]}]}'
 JQAPIS = '{"project_name": "$(BASE)", apis: [.services[]|{apiname: .name, verbs: [.calls[]|{verbname: .name, request: .request.name, response: .response.name }]}]}'
 
 # depending on version of flatcc, use either flatcc or flatc
@@ -41,7 +41,7 @@ MKBFBS = flatcc --schema
 	flatcc -c -a --json --outfile=$@ $<
 
 bfbs2json: bfbs2json.c reflection_json_printer.h
-	cc -o $@ $< -lflatccrt
+	cc -o $@ $< -lflatccrt -static
 
 %-fbcvt.c: %-rpc-types.json
 	./fbgen-cvt $@ $<
