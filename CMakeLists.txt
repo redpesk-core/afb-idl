@@ -45,3 +45,6 @@ include(GNUInstallDirs)
 install(TARGETS afb-genskel RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
 install(TARGETS afb-exprefs RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
 install(TARGETS afb-json2c  RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
+
+#### add afb-fbgen ####
+add_subdirectory(flatbuffers)

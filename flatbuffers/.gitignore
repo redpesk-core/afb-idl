@@ -7,4 +7,3 @@ reflection*
 fcc_blinky*
 !fcc_blinky.fbs
 build/
-CMakeLists.txt
