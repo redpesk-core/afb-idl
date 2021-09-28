@@ -1,7 +1,5 @@
 bfbs2api
 bfbs2json
-sample*
-!sample.fbs
 reflection*
 !reflection.fbs
 build/
