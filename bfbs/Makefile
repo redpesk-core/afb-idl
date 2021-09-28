@@ -55,8 +55,11 @@ bfbs2json: bfbs2json.c reflection_json_printer.h
 %-fbapi.c: %-rpc-apis.json
 	./fbgen-api $@ $<
 
+CMakeLists.txt: $(BASE)-rpc-apis.json
+	mustach $< fb-template-$@ >> $@
+
 clean: 
 	rm -f $(INTERMED)
 
 mrproper: clean
-	rm -f $(ALLTARGETS) reflection_json_printer.h bfbs2json
+	rm -f $(ALLTARGETS) reflection_json_printer.h bfbs2json CMakeLists.txt
