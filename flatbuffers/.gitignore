@@ -4,6 +4,4 @@ sample*
 !sample.fbs
 reflection*
 !reflection.fbs
-fcc_blinky*
-!fcc_blinky.fbs
 build/
