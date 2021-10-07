@@ -30,24 +30,27 @@ option(WITH_FLATBUFFERS "include generation of flatbuffers" OFF)
 option(WITHOUT_FLATBUFFERS "exclude generation of flatbuffers" OFF)
 ###########################################################################
 
-include(FindPkgConfig)
-pkg_check_modules(json-c REQUIRED json-c)
-add_compile_options(${json-c_CFLAGS})
-link_libraries(${json-c_LDFLAGS})
-
-###########################################################################
-
-set(utilsrc exprefs.c  getref.c  json2c.c)
-add_executable(afb-genskel  main-genskel.c  ${utilsrc})
-add_executable(afb-exprefs  main-exprefs.c  ${utilsrc})
-add_executable(afb-json2c   main-json2c.c   ${utilsrc})
-
-###########################################################################
-
 include(GNUInstallDirs)
-install(TARGETS afb-genskel RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
-install(TARGETS afb-exprefs RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
-install(TARGETS afb-json2c  RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
+include(FindPkgConfig)
+
+###########################################################################
+
+pkg_check_modules(json-c REQUIRED json-c)
+
+###########################################################################
+
+add_library(utils STATIC exprefs.c  getref.c  json2c.c)
+target_compile_options(utils PRIVATE ${json-c_CFLAGS})
+macro(addexe NAME)
+	add_executable(afb-${NAME}  main-${NAME}.c)
+	target_compile_options(afb-${NAME} PRIVATE ${json-c_CFLAGS})
+	target_link_libraries(afb-${NAME} utils ${json-c_LDFLAGS})
+	install(TARGETS afb-${NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
+endmacro(addexe)
+
+addexe(genskel)
+addexe(exprefs)
+addexe(json2c)
 
 ###########################################################################
 #### add afb-fbgen ####
