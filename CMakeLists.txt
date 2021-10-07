@@ -26,6 +26,9 @@ project(afb-idl
 set(HOMEPAGE_URL "https://github.com/redpesk-core/afb-idl")
 
 ###########################################################################
+option(WITH_FLATBUFFERS "include generation of flatbuffers" OFF)
+option(WITHOUT_FLATBUFFERS "exclude generation of flatbuffers" OFF)
+###########################################################################
 
 include(FindPkgConfig)
 pkg_check_modules(json-c REQUIRED json-c)
@@ -46,5 +49,17 @@ install(TARGETS afb-genskel RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
 install(TARGETS afb-exprefs RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
 install(TARGETS afb-json2c  RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
 
+###########################################################################
 #### add afb-fbgen ####
-add_subdirectory(flatbuffers)
+if(NOT WITH_FLATBUFFERS AND NOT WITHOUT_FLATBUFFERS)
+	find_program(FLATCC flatcc)
+	if(FLATCC)
+		message(STATUS "Check for flatcc: ${FLATCC}")
+	else(FLATCC)
+		message(STATUS "Check for flatcc: not found")
+		set(WITHOUT_FLATBUFFERS ON)
+	endif(FLATCC)
+endif(NOT WITH_FLATBUFFERS AND NOT WITHOUT_FLATBUFFERS)
+if(NOT WITHOUT_FLATBUFFERS)
+	add_subdirectory(flatbuffers)
+endif(NOT WITHOUT_FLATBUFFERS)

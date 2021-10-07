@@ -5,6 +5,26 @@ project(
 	DESCRIPTION "afb-fbgen generate afb api baser on flatbuffers schema"
 )
 
+include(GNUInstallDirs)
+
+# Check for flatcc generator
+find_program(FLATCC flatcc)
+if(FLATCC-NOTFOUND)
+	message(FATAL_ERROR "flatcc,  is required")
+endif(FLATCC-NOTFOUND)
+
+# Check for jq processor
+find_program(JQ jq)
+if(JQ-NOTFOUND)
+	message(STATUS "jq, the json processor, is required at run time")
+endif(JQ-NOTFOUND)
+
+# Check for mustach processor
+find_program(MUSTACH mustach)
+if(MUSTACH-NOTFOUND)
+	message(STATUS "mustach, the mustache processor, is required")
+endif(MUSTACH-NOTFOUND)
+
 #### afb-fbgen ####
 set(AFB_FBGEN_SH ${CMAKE_CURRENT_SOURCE_DIR}/afb-fbgen)
 set(FB_TEMPLATES
@@ -15,13 +35,12 @@ set(FB_TEMPLATES
 	${CMAKE_CURRENT_SOURCE_DIR}/fb-template-CMakeLists.txt
 
 )
+install(FILES ${FB_TEMPLATES} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/afb-idl/afb-flatbuffers)
+install(PROGRAMS ${AFB_FBGEN_SH} DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
 
 #### reflection json printer ####
 set(REFLECTION_HEADER reflection_json_printer.h)
 set(REFLECTION_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/reflection.fbs)
-
-# Check for flatcc generator
-find_program(FLATCC flatcc)
 
 add_custom_command(
 	OUTPUT ${REFLECTION_HEADER}
@@ -34,6 +53,10 @@ add_custom_target(
     DEPENDS ${REFLECTION_HEADER}
 )
 
+if(FLATCC-NOTFOUND)
+	message(SEND_ERROR "flatcc is required")
+endif(FLATCC-NOTFOUND)
+
 #### bfbs2json ####
 add_executable(bfbs2json bfbs2json.c)
 target_link_libraries(bfbs2json flatccrt)
@@ -41,7 +64,4 @@ add_dependencies(bfbs2json reflection_generated_header)
 target_include_directories(bfbs2json PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 #### instalation ####
-include(GNUInstallDirs)
 install(TARGETS bfbs2json RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_LIBEXECDIR})
-install(FILES ${FB_TEMPLATES} DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/afb-idl/afb-flatbuffers)
-install(PROGRAMS ${AFB_FBGEN_SH} DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
