@@ -6,6 +6,12 @@ project({{project_name}})
 
 include(FindPkgConfig)
 
+option(DEBUG_PRINT "Print hexdump of genereted flatbuffers" OFF)
+
+if(${DEBUG_PRINT})
+	add_definitions(-DDEBUG_PRINT)
+endif(${DEBUG_PRINT})
+
 set(API_NAME {{project_name}}-api)
 add_library(${API_NAME} SHARED {{project_name}}-fbapi.c {{project_name}}-fbcvt.c)
 target_link_libraries(${API_NAME} flatccrt ${ldflags} ${check_LDFLAGS})

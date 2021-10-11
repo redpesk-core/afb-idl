@@ -1,4 +1,4 @@
-#include "{{project_name}}_flatcc.h"
+#include "{{project_name}}-flatcc.h"
 #include "{{project_name}}-fbcvt.h"
 
 #define AFB_BINDING_VERSION 4

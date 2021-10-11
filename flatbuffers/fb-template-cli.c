@@ -1,5 +1,5 @@
-#include "{{project_name}}_flatcc.h"
-#include "{{project_name}}_fbcli.h"
+#include "{{project_name}}-flatcc.h"
+#include "{{project_name}}-fbcli.h"
 
 {{#apis}}
 {{#verbs}}
