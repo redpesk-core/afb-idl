@@ -13,16 +13,10 @@ if(FLATCC-NOTFOUND)
 	message(FATAL_ERROR "flatcc,  is required")
 endif(FLATCC-NOTFOUND)
 
-# Check for jq processor
-find_program(JQ jq)
-if(JQ-NOTFOUND)
-	message(STATUS "jq, the json processor, is required at run time")
-endif(JQ-NOTFOUND)
-
 # Check for mustach processor
 find_program(MUSTACH mustach)
 if(MUSTACH-NOTFOUND)
-	message(STATUS "mustach, the mustache processor, is required")
+	message(STATUS "mustach, the mustache processor, is required at runtime")
 endif(MUSTACH-NOTFOUND)
 
 #### afb-fbgen ####

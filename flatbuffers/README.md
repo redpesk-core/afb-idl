@@ -103,13 +103,11 @@ graph
     XB(X.bfbs)
     XJ(X.json)
     XH(X_*.h)
-    XTYP(X-rpc-types.json)
-    XRPC(X-rpc-apis.json)
+    JEXTR(X-rpc.json)
     XS -->|flatcc --schema| XB
     XB -->|bfbs2json| XJ
     XS -->|flatcc -a --json| XH
-    XJ -->|jq ...| XTYP
-    XJ -->|jq ...| XRPC
+    XJ -->|jfbsextr ...| JEXTR
 ```
 
 The Makefile can be used to create these items:
