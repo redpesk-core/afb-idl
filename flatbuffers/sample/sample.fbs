@@ -2,6 +2,7 @@
 //namespace AFB;
 
 attribute "permission";
+attribute "event";
 
 enum id : ushort {
 	none = 0,
@@ -24,7 +25,7 @@ table tes {
 }
 
 table set_in {
-	setters: [setter];
+	setters: [value];
 }
 
 table set_out {
@@ -39,8 +40,12 @@ table get_out {
 	values: [ushort];
 }
 
-struct setter {
+struct value {
 	target: id;
 	value: ushort;
+}
+
+table status (event) {
+	values: [value];
 }
 

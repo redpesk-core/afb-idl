@@ -62,6 +62,11 @@ add_executable(bfbs2json bfbs2json.c)
 target_link_libraries(bfbs2json flatccrt)
 add_dependencies(bfbs2json reflection_generated_header)
 target_include_directories(bfbs2json PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-
-#### instalation ####
 install(TARGETS bfbs2json RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_LIBEXECDIR})
+
+#### jfbsextr ####
+add_executable(jfbsextr jfbsextr.c)
+target_compile_options(jfbsextr PRIVATE ${json-c_CFLAGS})
+target_link_libraries(jfbsextr ${json-c_LDFLAGS})
+install(TARGETS jfbsextr RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_LIBEXECDIR})
+
