@@ -228,7 +228,7 @@ flatcc --schema -o "$TEMPDIR" "$fbschema"
 
 # Json description of schema
 RPC_JSON="$TEMPDIR/$fbsname.json"
-$BFBS2JSON "$BFBS" | $JFBSEXTR --pretty --name "$prjname" > "$RPC_JSON"
+$BFBS2JSON "$BFBS" | $JFBSEXTR --pretty --json --name "$prjname" > "$RPC_JSON"
 [ -e "$RPC_JSON" ] || err "Fail to generate json extract of schema $RPC_JSON"
 
 ###################

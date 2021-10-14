@@ -21,7 +21,11 @@
 
 #include <json-c/json.h>
 
-char *name;
+enum { UNSET, YES, NO };
+
+char *name = 0;
+char *root = 0;
+int wjso = UNSET;
 
 void add(struct json_object *object, const char *key, struct json_object *value)
 {
@@ -229,6 +233,16 @@ int main(int ac, char **av)
 		else if (av[ia][1] == '-') {
 			if (!av[ia][2])
 				scan = 0;
+			else if (!strncmp(&av[ia][2], "root", 4) && (av[ia][6] == '=' || !av[ia][6])) {
+				if (av[ia][6] == '=')
+					root = &av[ia][7];
+				else if (ia + 1 < ac)
+					root = av[++ia];
+				else {
+					fprintf(stderr, "option --root expects a value\n");
+					return 1;
+				}
+			}
 			else if (!strncmp(&av[ia][2], "name", 4) && (av[ia][6] == '=' || !av[ia][6])) {
 				if (av[ia][6] == '=')
 					name = &av[ia][7];
@@ -238,6 +252,12 @@ int main(int ac, char **av)
 					fprintf(stderr, "option --name expects a value\n");
 					return 1;
 				}
+			}
+			else if (!strcmp(&av[ia][2], "json")) {
+				wjso = YES;
+			}
+			else if (!strcmp(&av[ia][2], "no-json")) {
+				wjso = NO;
 			}
 			else if (!strcmp(&av[ia][2], "pretty")) {
 				flags |= JSON_C_TO_STRING_PRETTY;
@@ -255,6 +275,28 @@ int main(int ac, char **av)
 				case 'p':
 					flags |= JSON_C_TO_STRING_PRETTY;
 					ja++;
+					break;
+				case 'j':
+					wjso = YES;
+					ja++;
+					break;
+				case 'J':
+					wjso = NO;
+					ja++;
+					break;
+				case 'r':
+					if (av[ia][ja + 1]) {
+						root = &av[ia][ja + 1];
+						ja = 0;
+					}
+					else if (ia + 1 < ac) {
+						root = av[++ia];
+						ja = 0;
+					}
+					else {
+						fprintf(stderr, "option -r expects a value\n");
+						return 1;
+					}
 					break;
 				case 'n':
 					if (av[ia][ja + 1]) {
@@ -284,6 +326,26 @@ int main(int ac, char **av)
 		return 1;
 	}
 
+	/* create the product */
+	if (!root)
+		prod = json_object_new_object();
+	else {
+		prod = json_tokener_parse(root);
+		if (!json_object_is_type(prod, json_type_object)) {
+			fprintf(stderr, "error, given root is not an object\n");
+			return 1;
+		}
+	}
+	if (!name && json_object_object_get(prod, "project_name") == NULL)
+		name = "";
+	if (name)
+		add(prod, "project_name", json_object_new_string(name));
+	if (wjso == UNSET && json_object_object_get(prod, "genjson") == NULL)
+		wjso = YES;
+	if (wjso != UNSET)
+		add(prod, "genjson", json_object_new_boolean(wjso == YES));
+
+	/* load the JSON schema description */
 	if (ia == ac)
 		filename = "/dev/stdin";
 	else {
@@ -297,8 +359,7 @@ int main(int ac, char **av)
 		return 1;
 	}
 
-	prod = json_object_new_object();
-	add(prod, "project_name", name ? json_object_new_string(name) : NULL);
+	/* produce the items */
 	get_types(obj, prod);
 	get_apis(obj, prod);
 
