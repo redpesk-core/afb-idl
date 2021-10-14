@@ -23,7 +23,9 @@ endif(MUSTACH-NOTFOUND)
 set(AFB_FBGEN_SH ${CMAKE_CURRENT_SOURCE_DIR}/afb-fbgen)
 set(FB_TEMPLATES
 	${CMAKE_CURRENT_SOURCE_DIR}/fb-template-api.c
+	${CMAKE_CURRENT_SOURCE_DIR}/fb-template-api.h
 	${CMAKE_CURRENT_SOURCE_DIR}/fb-template-cli.c
+	${CMAKE_CURRENT_SOURCE_DIR}/fb-template-cli.h
 	${CMAKE_CURRENT_SOURCE_DIR}/fb-template-cvt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/fb-template-cvt.h
 	${CMAKE_CURRENT_SOURCE_DIR}/fb-template-CMakeLists.txt

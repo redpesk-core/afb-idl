@@ -1,67 +1,66 @@
-#include "{{project_name}}-flatcc.h"
-#include "{{project_name}}-fbcvt.h"
-
 #define AFB_BINDING_VERSION 4
 #include <afb/afb-binding.h>
 
+#include "{{project-name}}-flatcc.h"
+#include "{{project-name}}-fbcvt.h"
+#include "{{project-name}}-fbapi.h"
 {{! *************************************************************************** }}
 {{! **** GENERATE AS MANY API AS ARE RPC SERVICES DESCRIBED IN THE SCHEMA ***** }}
 {{! *************************************************************************** }}
 {{#apis}}
-
-
 {{! *************************************************************************** }}
 {{! **** FOR EACH PROC OF A SERVICE GENERATES A VERB                      ***** }}
 {{! *************************************************************************** }}
-
 {{#verbs}}
 
-void {{apiname}}_{{verbname}}_process_reply_cb(
-		void *closure,
+void {{apiname}}_{{verbname}}_reply(
+		afb_req_t req,
 		int status,
-		unsigned nreplies,
-		afb_data_x4_t const replies[],
-		afb_req_x4_t req)
+		afb_data_t reply)
 {
-
+	afb_data_t data = reply;
+	unsigned ndata = afb_data_is_valid(reply);
+{{#generate-json}}
+	if (ndata) {
+		afb_data_t const *params;
+		afb_req_parameters(req, &params);
+		if (!{{request.typename}}_is_in_afb_data(params[0])) {
+			 /* reply json when query is not binary */
+			int rc = {{response.typename}}_to_afb_data_json(reply, &data);
+			afb_data_unref(reply);
+			if (rc < 0) {
+				AFB_REQ_ERROR(req, "\"{{verbname}}\" can't convert to JSON");
+				status = rc;
+				ndata = 0;
+			}
+		}
+	}
+{{/generate-json}}
+	afb_req_reply(req, status, ndata, &data);
 }
 
-int {{apiname}}_{{verbname}}_process(afb_data_t holder, afb_req_t req)
-{
-	return 0;
-}
-
-{{/verbs}}
-
-{{#verbs}}
 /**
  * Template verb implementation for RPC of flatbuffer service.
  *
- * Schema:      {{project_name}}
+ * Schema:      {{project-name}}
  * RPC service: {{apiname}}
  * Procedure:   {{verbname}}
  */
 static void {{apiname}}_{{verbname}}_verb_cb(afb_req_t afbreq, unsigned argc, afb_data_t const argv[])
 {
-	afb_data_t dataholder;
+	afb_data_t data;
 	int rc;
 
 	if (argc != 1)
 		AFB_REQ_ERROR(afbreq, "\"{{verbname}}\" expected 1 argument");
 
 	else {
-		rc = {{request}}_from_afb_data(argv[0], &dataholder);
-		if (rc < 0)
-			AFB_REQ_ERROR(afbreq, "\"{{verbname}}\" BAD argument");
-		else {
-			rc = {{apiname}}_{{verbname}}_process(dataholder, afbreq);
-			if (rc >= 0)
-				return;
-			
-			afb_req_reply(afbreq, rc, 0, 0);
-			afb_data_unref(dataholder);
+		rc = {{request.typename}}_from_afb_data(argv[0], &data);
+		if (rc >= 0) {
+			{{apiname}}_{{verbname}}_process(afbreq, data);
 			return;
 		}
+		AFB_REQ_ERROR(afbreq, "\"{{verbname}}\" BAD argument");
 	}
 	afb_req_reply(afbreq, AFB_ERRNO_INVALID_REQUEST, 0, 0);
 }
@@ -96,4 +95,3 @@ const struct afb_binding_v4 afbBindingV4 = {
 	.verbs = {{apiname}}_verbs
 };
 {{/apis}}
-

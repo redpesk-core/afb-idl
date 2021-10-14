@@ -27,32 +27,97 @@ char *name = 0;
 char *root = 0;
 int wjso = UNSET;
 
+/* if value is not zero add to object a field of key and value */
 void add(struct json_object *object, const char *key, struct json_object *value)
 {
 	if (value)
 		json_object_object_add(object, key, value);
 }
 
-void addtype(struct json_object *types, struct json_object *name)
+/* search in the array of types the type of the given name */
+struct json_object *gettype_str(struct json_object *types, const char *name)
 {
 	size_t ityp, ntyps;
 	struct json_object *type, *tname;
 
-	if (!json_object_is_type(name, json_type_string))
-		return;
+	/* linear cearch in the array */
 	ntyps = json_object_array_length(types);
 	for (ityp = 0 ; ityp < ntyps ; ityp++) {
 		type = json_object_array_get_idx(types, ityp);
 		tname = json_object_object_get(type, "typename");
-		if (!strcmp(json_object_get_string(tname), json_object_get_string(name)))
-			return;
+		if (!strcmp(json_object_get_string(tname), name))
+			return type;
 	}
+	return 0;
+}
+
+/* search in the array of types the type of the given name */
+struct json_object *gettype_obj(struct json_object *types, struct json_object *name)
+{
+	if (!json_object_is_type(name, json_type_string))
+		return 0;
+	return gettype_str(types, json_object_get_string(name));
+}
+
+/* add the type described by desc in the array of types */
+void addtype(struct json_object *types, struct json_object *desc)
+{
+	size_t ityp, ntyps;
+	struct json_object *type, *isstruct, *name;
+	enum { type_table, type_struct } typetype;
+
+	/* check if the type is already recorded or not */
+	name = json_object_object_get(desc, "name");
+	if (!json_object_is_type(name, json_type_string))
+		return;
+	type = gettype_str(types, json_object_get_string(name));
+	if (type)
+		return;
+
+	/* not recorded, create it */
 	type = json_object_new_object();
 	add(type, "typename", json_object_get(name));
+	isstruct = json_object_object_get(desc, "is_struct");
+	if (json_object_is_type(isstruct, json_type_boolean)
+	 && json_object_get_boolean(isstruct))
+		typetype = type_struct;
+	else
+		typetype = type_table;
+	add(type, "is-table", json_object_new_boolean(typetype == type_table));
+	add(type, "is-struct", json_object_new_boolean(typetype == type_struct));
+	add(type, "typetype", json_object_new_string(typetype == type_struct ? "struct" : "table"));
+
+	/* record it */
 	json_object_array_add(types, type);
 }
 
-void get_types_for_services(struct json_object *spec, struct json_object *types)
+/* search in the spec the object of the given name */
+void addtypemsg(struct json_object *spec, struct json_object *types, struct json_object *msg)
+{
+	const char *namestr;
+	size_t iobj, nobjs;
+	struct json_object *obj, *objects, *name;
+
+	/* get the typename of the message */
+	name = json_object_object_get(msg, "name");
+	objects = json_object_object_get(spec, "objects");
+	if (!json_object_is_type(name, json_type_string)
+	 || !json_object_is_type(objects, json_type_array))
+		return;
+	namestr = json_object_get_string(name);
+
+	/* linear search in the array */
+	nobjs = json_object_array_length(objects);
+	for (iobj = 0 ; iobj < nobjs ; iobj++) {
+		obj = json_object_array_get_idx(objects, iobj);
+		name = json_object_object_get(obj, "name");
+		if (!strcmp(json_object_get_string(name), namestr))
+			return addtype(types, obj);
+	}
+}
+
+/* record the types required by services */
+void record_types_for_services(struct json_object *spec, struct json_object *types)
 {
 	size_t isrv, nsrvs, icall, ncalls;
 	struct json_object *services, *service, *calls, *call, *request, *response;
@@ -73,15 +138,16 @@ void get_types_for_services(struct json_object *spec, struct json_object *types)
 			for (icall = 0 ; icall < ncalls ; icall++) {
 				call = json_object_array_get_idx(calls, icall);
 				request = json_object_object_get(call, "request");
-				addtype(types, json_object_object_get(request, "name"));
+				addtypemsg(spec, types, request);
 				response = json_object_object_get(call, "response");
-				addtype(types, json_object_object_get(response, "name"));
+				addtypemsg(spec, types, response);
 			}
 		}
 	}
 }
 
-void get_types_for_events(struct json_object *spec, struct json_object *types)
+/* record the types tagged with the attribute event */
+void record_types_for_events(struct json_object *spec, struct json_object *types)
 {
 	size_t iobj, nobjs, iattr, nattrs;
 	struct json_object *objects, *object, *attrs, *attr, *key;
@@ -106,20 +172,22 @@ void get_types_for_events(struct json_object *spec, struct json_object *types)
 			attr = json_object_array_get_idx(attrs, iattr);
 			key = json_object_object_get(attr, "key");
 			if (!strcmp(json_object_get_string(key), "event"))
-				addtype(types, json_object_object_get(object, "name"));
+				addtype(types, object);
 		}
 	}
 }
 
-void get_types(struct json_object *spec, struct json_object *prod)
+/* record the types potentially used in event or in RPC */
+void record_types(struct json_object *spec, struct json_object *prod)
 {
 	struct json_object *types = json_object_new_array();
 	add(prod, "types", types);
-	get_types_for_services(spec, types);
-	get_types_for_events(spec, types);
+	record_types_for_services(spec, types);
+	record_types_for_events(spec, types);
 }
 
-size_t addperm(struct json_object *perms, struct json_object *name)
+/* record the permission of given name and return its index */
+size_t record_perm(struct json_object *perms, struct json_object *name)
 {
 	size_t iperm, nperms;
 	struct json_object *perm, *pname;
@@ -134,15 +202,16 @@ size_t addperm(struct json_object *perms, struct json_object *name)
 	return nperms;
 }
 
-
-void get_apis(struct json_object *spec, struct json_object *prod)
+/* records the apis, one per services */
+void record_apis(struct json_object *spec, struct json_object *prod)
 {
 	size_t isrv, nsrvs, icall, ncalls, iattr, nattrs, iperm;
 	json_object *services, *service, *calls, *call, *request, *response, *attrs, *attr, *key, *value;
-	json_object *apis, *api, *verbs, *verb, *permissions, *perm;
+	json_object *apis, *api, *verbs, *verb, *permissions, *perm, *types, *type;
 
 	apis = json_object_new_array();
 	add(prod, "apis", apis);
+	types = json_object_object_get(prod, "types");
 
 	/* get the services */
 	services = json_object_object_get(spec, "services");
@@ -175,9 +244,11 @@ void get_apis(struct json_object *spec, struct json_object *prod)
 				json_object_array_add(verbs, verb);
 				add(verb, "verbname", json_object_get(json_object_object_get(call, "name")));
 				request = json_object_object_get(call, "request");
-				add(verb, "request", json_object_get(json_object_object_get(request, "name")));
+				type = gettype_obj(types, json_object_object_get(request, "name"));
+				add(verb, "request", json_object_get(type));
 				response = json_object_object_get(call, "response");
-				add(verb, "response", json_object_get(json_object_object_get(response, "name")));
+				type = gettype_obj(types, json_object_object_get(response, "name"));
+				add(verb, "response", json_object_get(type));
 
 				/* get the permissions */
 				perm = NULL;
@@ -198,7 +269,7 @@ void get_apis(struct json_object *spec, struct json_object *prod)
 								add(api, "has-permissions", json_object_new_boolean(1));
 								add(api, "permissions", permissions);
 							}
-							iperm = addperm(permissions, value);
+							iperm = record_perm(permissions, value);
 							perm = json_object_new_object();
 							add(perm, "name", json_object_get(value));
 							add(perm, "index", json_object_new_int((int)iperm));
@@ -336,14 +407,14 @@ int main(int ac, char **av)
 			return 1;
 		}
 	}
-	if (!name && json_object_object_get(prod, "project_name") == NULL)
+	if (!name && json_object_object_get(prod, "project-name") == NULL)
 		name = "";
 	if (name)
-		add(prod, "project_name", json_object_new_string(name));
-	if (wjso == UNSET && json_object_object_get(prod, "genjson") == NULL)
+		add(prod, "project-name", json_object_new_string(name));
+	if (wjso == UNSET && json_object_object_get(prod, "generate-json") == NULL)
 		wjso = YES;
 	if (wjso != UNSET)
-		add(prod, "genjson", json_object_new_boolean(wjso == YES));
+		add(prod, "generate-json", json_object_new_boolean(wjso == YES));
 
 	/* load the JSON schema description */
 	if (ia == ac)
@@ -360,8 +431,8 @@ int main(int ac, char **av)
 	}
 
 	/* produce the items */
-	get_types(obj, prod);
-	get_apis(obj, prod);
+	record_types(obj, prod);
+	record_apis(obj, prod);
 
 	json_object_to_fd(1, prod, flags);
 	json_object_put(obj);

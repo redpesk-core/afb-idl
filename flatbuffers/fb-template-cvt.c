@@ -1,55 +1,76 @@
-#include "{{project_name}}-flatcc.h"
-#include "{{project_name}}-fbcvt.h"
+
+#include <errno.h>
 
 #define AFB_BINDING_VERSION 4
 #include <afb/afb-binding.h>
-#include <errno.h>
 
-#ifdef DEBUG_PRINT
-#include "flatcc/support/hexdump.h"
-#include <stdio.h>
-#endif
+#include "{{project-name}}-flatcc.h"
+#include "{{project-name}}-fbcvt.h"
 
 {{#types}}
-
 /****************************************************************************************
-*** SERIALISATION OF {{typename}}
+*** BASIC OPERATIONS ON FLATBUFFER TYPE {{typename}} FROM {{project-name}}
 ****************************************************************************************/
 
-int {{typename}}_from_afb_data(afb_data_t indata, afb_data_t *outholder)
+int {{typename}}_is_in_afb_data(afb_data_t data)
 {
-	// {{typename}}_table_t tbl;
 	void *ptr;
 	size_t sz;
 	int rc;
-#if !NOJSONPARSE
+
+	/* is the input data a bytearray ? */
+	if (afb_data_type(data) == AFB_PREDEFINED_TYPE_BYTEARRAY) {
+		/* yes, it is a byte array, retrieve address and size */
+		rc = afb_data_get_constant(data, &ptr, &sz);
+		if (rc >= 0 && !{{typename}}_verify_as_typed_root(ptr, sz))
+			return 1;
+	}
+	return 0;
+}
+
+{{typename}}_{{typetype}}_t {{typename}}_unwrap(afb_data_t data)
+{
+	void *ptr;
+	size_t sz;
+
+	if (afb_data_type(data) == AFB_PREDEFINED_TYPE_BYTEARRAY
+	 && afb_data_get_constant(data, &ptr, &sz) >= 0
+	 && {{typename}}_verify_as_typed_root(ptr, sz) == 0)
+		return {{typename}}_as_typed_root(afb_data_ro_pointer(data));
+	return 0;
+}
+
+{{typename}}_{{typetype}}_t {{typename}}_unwrap_unchecked(afb_data_t data)
+{
+	return {{typename}}_as_typed_root(afb_data_ro_pointer(data));
+}
+
+int {{typename}}_from_afb_data(afb_data_t indata, afb_data_t *outdata)
+{
+	if ({{typename}}_is_in_afb_data(indata)) {
+		*outdata = afb_data_addref(indata);
+		return 0;
+	}
+{{^generate-json}}
+	return -EINVAL;
+{{/generate-json}}
+{{#generate-json}}
+	return {{typename}}_from_afb_data_json(indata, outdata);
+{{/generate-json}}
+}
+
+{{#generate-json}}
+int {{typename}}_from_afb_data_json(afb_data_t indata, afb_data_t *outdata)
+{
+	void *ptr;
+	size_t sz;
+	int rc;
 	flatcc_builder_t builder;
 	flatcc_json_parser_t parser;
 	flatcc_builder_ref_t fbref;
 	afb_data_t datastr;
 	const char *parseout;
-#endif
 
-	/* is the input data a bytearray ? */
-	if (afb_data_type(indata) == AFB_PREDEFINED_TYPE_BYTEARRAY) {
-		/* yes, it is a byte array, retrieve address and size */
-		rc = afb_data_get_constant(indata, &ptr, &sz);
-		if (rc < 0)
-			goto error; /* failed */
-#if !NOFBVERIF
-		/* verify the validity of the bytearray according to type {{typename}} */
-		if ({{typename}}_verify_as_typed_root(ptr, sz)) {
-			rc = -EINVAL;
-			goto error; /* failed */
-		}
-#endif
-		/* holder of bytearray is the input data */
-		*outholder = afb_data_addref(indata);
-		rc = 0;
-		goto end;
-	}
-
-#if !NOJSONPARSE
 	/* trying JSON. First, can match a string? */
 	rc = afb_data_convert(indata, AFB_PREDEFINED_TYPE_STRINGZ, &datastr);
 	if (rc < 0)
@@ -82,11 +103,8 @@ int {{typename}}_from_afb_data(afb_data_t indata, afb_data_t *outholder)
 		goto error3;
 	}
 
-#ifdef DEBUG_PRINT
-	hexdump("{{typename}} buffer", ptr, sz, stderr);
-#endif
 	/* create the data holding that memory buffer */
-	rc = afb_create_data_raw(outholder, AFB_PREDEFINED_TYPE_BYTEARRAY,
+	rc = afb_create_data_raw(outdata, AFB_PREDEFINED_TYPE_BYTEARRAY,
 			ptr, sz, free, ptr);
 	if (rc < 0)
 		goto error3;
@@ -100,60 +118,25 @@ error3:
 	flatcc_builder_clear(&builder);
 error2:
 	afb_data_unref(datastr);
-#endif
 error:
-	*outholder = NULL;
+	*outdata = NULL;
 end:
 	return rc;
 }
 
-int {{typename}}_to_afb_data_b(afb_data_t indata, afb_data_t *outdata)
-{
-	/* Probably not necessary here */
-#if !NOFBVERIF
-	size_t sz;
-	void * fbuf;
-	
-	int rc = afb_data_get_constant(indata, &fbuf, &sz);
-	
-	if (rc){
-		*outdata = 0;
-		return rc;
-	}
-
-	/* verify the validity of the bytearray according to type {{typename}} */
-	if ({{typename}}_verify_as_typed_root(fbuf, sz)) {
-		*outdata = 0;
-		return -EINVAL;
-	}
-#endif
-
-	*outdata = afb_data_addref(indata);
-
-	return 0;
-}
-
-int {{typename}}_to_afb_data_j(afb_data_t indata, afb_data_t *outdata)
+int {{typename}}_to_afb_data_json(afb_data_t indata, afb_data_t *outdata)
 {
 	size_t sz;
 	void * fbuf;
 	void * jbuf;
 	int rc;
+	flatcc_json_printer_t cvt;
 
 	rc = afb_data_get_constant(indata, &fbuf, &sz);
 	if (rc)
 		goto error;
 
-	/* Probably not necessary here */
-#if !NOFBVERIF
-	/* verify the validity of the bytearray according to type {{typename}} */
-	if ({{typename}}_verify_as_typed_root(fbuf, sz)) {
-		rc = -EINVAL;
-		goto error; /* failed */
-	}
-#endif
 	/* convert flatbuffer to json */
-	flatcc_json_printer_t cvt;
 	flatcc_json_printer_init_dynamic_buffer(&cvt, sz*5);
 	{{typename}}_print_json_as_root(&cvt, fbuf, sz, {{typename}}_type_identifier);
 	jbuf = flatcc_json_printer_finalize_dynamic_buffer(&cvt, &sz);
@@ -175,4 +158,5 @@ error:
 	return rc;
 }
 
+{{/generate-json}}
 {{/types}}
