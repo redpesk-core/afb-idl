@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <json-c/json.h>
 
@@ -426,7 +427,11 @@ int main(int ac, char **av)
 	}
 	obj = json_object_from_file(filename);
 	if (obj == NULL) {
+#if JSON_C_VERSION_NUM >= 0x000d00
 		fprintf(stderr, "%s\n", json_util_get_last_err());
+#else
+		fprintf(stderr, "error when reading JSON\n");
+#endif
 		return 1;
 	}
 
@@ -434,7 +439,12 @@ int main(int ac, char **av)
 	record_types(obj, prod);
 	record_apis(obj, prod);
 
+#if JSON_C_VERSION_NUM >= 0x000d00
 	json_object_to_fd(1, prod, flags);
+#else
+	char *ostr = json_object_to_json_string_ext(prod, flags);
+	write(1, ostr, strlen(ostr));
+#endif
 	json_object_put(obj);
 	json_object_put(prod);
 
