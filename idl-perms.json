@@ -1,0 +1,60 @@
+{
+  "afbidl": "0.1",
+  "info": {
+    "apiname": "perms",
+    "description": "demo for permissions",
+    "title": "demo for permissions",
+    "version": "1.0"
+  },
+  "tools": {
+    "genskel": {
+      "version": 2,
+      "prefix": "f_",
+      "postfix": "",
+      "preinit": null,
+      "init": null,
+      "onevent": null,
+      "scope": "static",
+      "private": true
+    }
+  },
+  "verbs": {
+    "check": {
+      "permissions": { "session": "check" }
+    },
+    "loa1": {
+      "permissions": { "LOA": 1 }
+    },
+    "perm1": {
+      "permissions": { "permission": "permission-1" }
+    },
+    "perm2": {
+      "permissions": { "permission": "permission-2" }
+    },
+    "perm1or2or3": {
+      "permissions": { "anyOf": [
+                        { "permission": "permission-1" },
+                        { "permission": "permission-2" },
+                        { "permission": "permission-3" } ] }
+    },
+    "perm1and2and5": {
+      "permissions": { "allOf": [
+                        { "permission": "permission-1" },
+                        { "permission": "permission-2" },
+                        { "permission": "permission-4" } ] }
+    },
+    "permXXX": {
+      "permissions": { "allOf": [
+                        { "LOA": 3 },
+                        { "session": "check" },
+                        { "anyOf": [
+                          { "permission": "permission-1" },
+                          { "not": { "permission": "permission-1" } },
+                          { "allOf": [
+                                { "permission": "permission-2" },
+                                { "permission": "permission-4" } ] }
+                          ]}
+      ]}
+    }
+  }
+}
