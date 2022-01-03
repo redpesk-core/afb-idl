@@ -37,6 +37,7 @@ int version = 3;
 struct json_object *root = NULL;
 struct json_object *d_perms = NULL;
 struct json_object *a_perms = NULL;
+const char *mainctl = NULL;
 const char *preinit = NULL;
 const char *init = NULL;
 const char *onevent = NULL;
@@ -345,7 +346,13 @@ void print_declare_verb(const char *name, struct json_object *obj)
 		printf("%s ", scope);
 	printf("void ");
 	print_verb(name);
-	printf("(afb_req_t req);\n");
+	
+	if (version == 4) {
+		printf("(afb_req_t request, unsigned argc, afb_data_t const argv[]);\n");
+	} else {
+		printf("(afb_req_t req);\n");
+	}
+	
 }
 
 void print_struct_verb(const char *name, struct json_object *obj)
@@ -372,7 +379,7 @@ void print_struct_verb(const char *name, struct json_object *obj)
 		, p && decl_perm(p) ? json_object_get_string(decl_perm(p)) : "NULL"
 		, info ? str2c_inl(info) : "NULL"
 	);
-	if (version == 3)
+	if (version >= 3)
 		printf(
 			"        .vcbdata = NULL,\n"
 		);
@@ -380,7 +387,7 @@ void print_struct_verb(const char *name, struct json_object *obj)
 		"        .session = "
 	);
 	print_session(p);
-	if (version == 3)
+	if (version >= 3)
 		printf(
 			",\n"
 			"        .glob = 0"
@@ -422,6 +429,7 @@ void getvar(const char **var, const char *path, const char *defval)
 void openapi_getvars()
 {
 	getvar(&api, "#/info/x-binding-c-generator/api", NULL);
+	getvar(&mainctl, "#/info/x-binding-c-generator/mainctl", NULL);
 	getvar(&preinit, "#/info/x-binding-c-generator/preinit", NULL);
 	getvar(&init, "#/info/x-binding-c-generator/init", NULL);
 	getvar(&onevent, "#/info/x-binding-c-generator/onevent", NULL);
@@ -464,6 +472,7 @@ void openapi_enum_verbs(void (*func)(const char *name, struct json_object *obj))
 
 void afbidl_getvars()
 {
+	getvar(&mainctl, "#/tools/afb-genskel/mainctl", NULL);
 	getvar(&preinit, "#/tools/afb-genskel/preinit", NULL);
 	getvar(&init, "#/tools/afb-genskel/init", NULL);
 	getvar(&onevent, "#/tools/afb-genskel/onevent", NULL);
@@ -596,14 +605,14 @@ void process(char *filename)
 		"        .auth = NULL,\n"
 		"        .info = NULL,\n"
 	);
-	if (version == 3)
+	if (version >= 3)
 		printf(
 			"        .vcbdata = NULL,\n"
 		);
 	printf(
 		"        .session = 0"
 	);
-	if (version == 3)
+	if (version >= 3)
 		printf(
 			",\n"
 			"        .glob = 0"
@@ -614,23 +623,28 @@ void process(char *filename)
 		"};\n"
 	);
 
-	if (TEST(preinit) || TEST(init) || TEST(onevent)) {
+	if (TEST(preinit) || TEST(init) || TEST(onevent) || TEST(mainctl)) {
 		printf("\n");
-		if (TEST(preinit)) {
+		if (TEST(mainctl) && version >= 4) {
+			if (TEST(scope)) printf("%s ", scope);
+			printf("int %s(%s);\n",
+					mainctl, version==4 ? "afb_api_t api, afb_ctlid_t ctlid, afb_ctlarg_t ctlarg, void *userdata" 
+										: "");
+		}
+		if (TEST(preinit) && version < 4) {
 			if (TEST(scope)) printf("%s ", scope);
 			printf("int %s(%s);\n", preinit, version==3 ? "afb_api_t api" : "");
 		}
-		if (TEST(init)) {
+		if (TEST(init) && version < 4) {
 			if (TEST(scope)) printf("%s ", scope);
 			printf("int %s(%s);\n", init, version==3 ? "afb_api_t api" : "");
 		}
-		if (TEST(onevent)) {
+		if (TEST(onevent) && version < 4) {
 			if (TEST(scope)) printf("%s ", scope);
 			printf("void %s(%sconst char *event, struct json_object *object);\n",
 					onevent, version==3 ? "afb_api_t api, " : "");
 		}
 	}
-
 	printf(
 		"\n"
 		"%sconst struct afb_binding_v%d %s%s = {\n"
@@ -638,24 +652,34 @@ void process(char *filename)
 		"    .specification = _afb_description_%s,\n"
 		"    .info = %s,\n"
 		"    .verbs = _afb_verbs_%s,\n"
-		"    .preinit = %s,\n"
-		"    .init = %s,\n"
-		"    .onevent = %s,\n"
 		, priv ? "static " : ""
 		, version
-		, priv ? "_afb_binding_" : version==3 ? "afbBindingV3" : "afbBindingV2"
+		, priv ? "_afb_binding_" : version==4 ? "afbBindingV4" : version==3 ? "afbBindingV3" :"afbBindingV2"
 		, priv ? capi : ""
 		, api
 		, capi
 		, info ? str2c_inl(info) : "NULL"
 		, capi
-		, TEST(preinit) ? preinit : "NULL"
-		, TEST(init) ? init : "NULL"
-		, TEST(onevent) ? onevent : "NULL"
 	);
 
+	if (version == 4) {
+		printf(
+			"    .mainctl = %s,\n"
+			, TEST(mainctl) ? mainctl : "NULL"
+		);
+	} else {
+		printf(
+			"    .preinit = %s,\n"
+			"    .init = %s,\n"
+			"    .onevent = %s,\n"
+			, TEST(preinit) ? preinit : "NULL"
+			, TEST(init) ? init : "NULL"
+			, TEST(onevent) ? onevent : "NULL"
+		);
 
-	if (version == 3)
+	}
+
+	if (version >= 3)
 		printf(
 			"    .userdata = NULL,\n"
 			"    .provide_class = %s%s%s,\n"
@@ -695,6 +719,9 @@ int main(int ac, char **av)
 			r++;
 		} else if (!strcmp(av[r], "-3")) {
 			version = 3;
+			r++;
+		} else if (!strcmp(av[r], "-4")) {
+			version = 4;
 			r++;
 		} else {
 			av[w++] = av[r++];
