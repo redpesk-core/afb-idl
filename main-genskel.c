@@ -346,13 +346,12 @@ void print_declare_verb(const char *name, struct json_object *obj)
 		printf("%s ", scope);
 	printf("void ");
 	print_verb(name);
-	
+
 	if (version == 4) {
 		printf("(afb_req_t request, unsigned argc, afb_data_t const argv[]);\n");
 	} else {
-		printf("(afb_req_t req);\n");
+		printf("(afb_req_t request);\n");
 	}
-	
 }
 
 void print_struct_verb(const char *name, struct json_object *obj)
