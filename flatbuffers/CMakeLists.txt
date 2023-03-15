@@ -13,6 +13,9 @@ if(FLATCC-NOTFOUND)
 	message(FATAL_ERROR "flatcc,  is required")
 endif(FLATCC-NOTFOUND)
 
+string(REPLACE "bin/flatcc" "include" FLATCCINC ${FLATCC})
+include_directories(${FLATCCINC})
+
 # Check for mustach processor
 find_program(MUSTACH mustach)
 if(MUSTACH-NOTFOUND)
