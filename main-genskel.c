@@ -189,7 +189,7 @@ struct json_object *decl_perm(struct json_object *obj)
 		if (cpp)
 			fmt = "afb::auth_permission(\"%s\")";
 		else
-			fmt = ".type = afb_auth_Permission, .text = \"%s\"";
+			fmt = ".type = afb_auth_Permission, .text = \"%s\", .next = NULL";
 		asprintf(&a, fmt, json_object_get_string(x));
 		y = new_perm(obj, a);
 		free(a);
@@ -205,7 +205,7 @@ struct json_object *decl_perm(struct json_object *obj)
 		if (cpp)
 			fmt = "afb::auth_not(%s)";
 		else
-			fmt = ".type = afb_auth_Not, .first = %s";
+			fmt = ".type = afb_auth_Not, .first = %s, .next = NULL";
 		asprintf(&a, fmt, json_object_get_string(x));
 		y = new_perm(obj, a);
 		free(a);
