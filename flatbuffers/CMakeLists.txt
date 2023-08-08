@@ -9,9 +9,9 @@ include(GNUInstallDirs)
 
 # Check for flatcc generator
 find_program(FLATCC flatcc)
-if(FLATCC-NOTFOUND)
+if(NOT FLATCC)
 	message(FATAL_ERROR "flatcc,  is required")
-endif(FLATCC-NOTFOUND)
+endif()
 
 string(REPLACE "bin/flatcc" "include" FLATCCINC ${FLATCC})
 include_directories(${FLATCCINC})
@@ -52,15 +52,17 @@ add_custom_target(
     DEPENDS ${REFLECTION_HEADER}
 )
 
-if(FLATCC-NOTFOUND)
-	message(SEND_ERROR "flatcc is required")
-endif(FLATCC-NOTFOUND)
-
 #### bfbs2json ####
+get_filename_component(DNFCC ${FLATCC} DIRECTORY)
+find_path(FJPH flatcc_json_printer.h PATHS ${DNFCC}/../include/flatcc)
+message("FJPH ${FJPH}")
+if(NOT FJPH)
+	message(FATAL_ERROR "required header flatcc_json_printer.h not found")
+endif()
 add_executable(bfbs2json bfbs2json.c)
 target_link_libraries(bfbs2json flatccrt)
 add_dependencies(bfbs2json reflection_generated_header)
-target_include_directories(bfbs2json PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(bfbs2json PUBLIC ${CMAKE_CURRENT_BINARY_DIR} ${FJPH}/..)
 install(TARGETS bfbs2json RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_LIBEXECDIR})
 
 #### jfbsextr ####

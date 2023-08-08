@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2022 IoT.bzh Company
+ * Copyright (C) 2016-2023 IoT.bzh Company
  * Author: José Bollo <jose.bollo@iot.bzh>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,6 +34,7 @@
  * root of the JSON being parsed
  */
 int version = 3;
+int version_set = 1;
 struct json_object *root = NULL;
 struct json_object *d_perms = NULL;
 struct json_object *a_perms = NULL;
@@ -43,6 +44,7 @@ const char *init = NULL;
 const char *onevent = NULL;
 const char *api = NULL;
 const char *scope = NULL;
+const char *noexcpt = NULL;
 const char *prefix = NULL;
 const char *postfix = NULL;
 const char *provideclass = NULL;
@@ -53,6 +55,8 @@ char *capi = NULL;
 int priv = -1;
 int noconc = -1;
 int cpp = 0;
+int cpp_set = 1;
+int declare = 0;
 enum idl {
 	idl_afbidl = 0,
 	idl_openapi = 1
@@ -102,7 +106,15 @@ void print_perms()
 		printf("static const struct afb_auth _afb_auths_%s[] = {\n" , capi);
 		i = 0;
 		while (i < n) {
-			printf(fmtstr, json_object_get_string(json_object_array_get_idx(a_perms, i)));
+			const char *perm = json_object_get_string(json_object_array_get_idx(a_perms, i));
+			switch (cpp) {
+			case 0:
+				printf("\t%s", perm);
+				break;
+			default:
+				printf("\t{ %s }", perm);
+				break;
+			}
 			printf(",\n"+(++i == n));
 		}
 		printf("};\n\n");
@@ -347,10 +359,16 @@ void print_declare_verb(const char *name, struct json_object *obj)
 	printf("void ");
 	print_verb(name);
 
-	if (version == 4) {
-		printf("(afb_req_t request, unsigned argc, afb_data_t const argv[]);\n");
-	} else {
+	switch (version) {
+	case 4:
+		if (cpp <= 1)
+			printf("(afb_req_t request, unsigned argc, afb_data_t const argv[]);\n");
+		else
+			printf("(afb::req request, afb::received_data params)%s;\n", noexcpt);
+		break;
+	default:
 		printf("(afb_req_t request);\n");
+		break;
 	}
 }
 
@@ -364,69 +382,99 @@ void print_struct_verb(const char *name, struct json_object *obj)
 		info = json_object_get_string(i);
 
 	p = permissions_of_verb(obj);
-	printf(
-		"    {\n"
-		"        .verb = \"%s\",\n"
-		"        .callback = "
-		, name
-	);
-	print_verb(name);
-	printf(
-		",\n"
-		"        .auth = %s,\n"
-		"        .info = %s,\n"
-		, p && decl_perm(p) ? json_object_get_string(decl_perm(p)) : "NULL"
-		, info ? str2c_inl(info) : "NULL"
-	);
-	if (version >= 3)
+	if (version >= 4 && cpp >= 2) {
+		printf("    afb::verb<");
+		print_verb(name);
+		printf(">(\n        \"%s\"", name);
+		if (info || p) {
+			printf(",\n        %s", info ? str2c_inl(info) : "nullptr");
+			if (p) {
+				struct json_object *dp = decl_perm(p);
+				printf(",\n        ");
+				print_session(p);
+				if (dp)
+					printf(",\n        %s", json_object_get_string(dp));
+			}
+		}
+		printf("),\n");
+	}
+	else {
 		printf(
-			"        .vcbdata = NULL,\n"
+			"    {\n"
+			"        .verb = \"%s\",\n"
+			"        .callback = "
+			, name
 		);
-	printf(
-		"        .session = "
-	);
-	print_session(p);
-	if (version >= 3)
+		print_verb(name);
 		printf(
 			",\n"
-			"        .glob = 0"
+			"        .auth = %s,\n"
+			"        .info = %s,\n"
+			, p && decl_perm(p) ? json_object_get_string(decl_perm(p)) : "NULL"
+			, info ? str2c_inl(info) : "NULL"
 		);
-	printf(
-		"\n"
-		"    },\n"
-	);
+		if (version >= 3)
+			printf(
+				"        .vcbdata = NULL,\n"
+			);
+		printf(
+			"        .session = "
+		);
+		print_session(p);
+		if (version >= 3)
+			printf(
+				",\n"
+				"        .glob = 0"
+			);
+		printf(
+			"\n"
+			"    },\n"
+		);
+	}
+}
+
+/******************************************************************************/
+
+void getvarint(int *var, const char *path, int defval, int set)
+{
+	struct json_object *o;
+
+	if (set) {
+		o = get$ref(root, path);
+		if (o && json_object_is_type(o, json_type_int))
+			*var = json_object_get_int(o);
+		else
+			*var = defval;
+	}
 }
 
 void getvarbool(int *var, const char *path, int defval)
 {
 	struct json_object *o;
 
-	if (*var != 0 && *var != 1) {
-		o = get$ref(root, path);
-		if (o && json_object_is_type(o, json_type_boolean))
-			*var = json_object_get_boolean(o);
-		else
-			*var = !!defval;
-	}
+	o = get$ref(root, path);
+	if (o && json_object_is_type(o, json_type_boolean))
+		*var = json_object_get_boolean(o);
+	else
+		*var = !!defval;
 }
 
 void getvar(const char **var, const char *path, const char *defval)
 {
 	struct json_object *o;
 
-	if (!*var) {
-		o = get$ref(root, path);
-		if (o && json_object_is_type(o, json_type_string))
-			*var = json_object_get_string(o);
-		else
-			*var = defval;
-	}
+	o = get$ref(root, path);
+	if (o && json_object_is_type(o, json_type_string))
+		*var = json_object_get_string(o);
+	else
+		*var = defval;
 }
 
 /******************************************************************************/
 
 void openapi_getvars()
 {
+	int nexpt;
 	getvar(&api, "#/info/x-binding-c-generator/api", NULL);
 	getvar(&mainctl, "#/info/x-binding-c-generator/mainctl", NULL);
 	getvar(&preinit, "#/info/x-binding-c-generator/preinit", NULL);
@@ -440,6 +488,11 @@ void openapi_getvars()
 	getvar(&requireapi, "#/info/x-binding-c-generator/require-api", NULL);
 	getvarbool(&priv, "#/info/x-binding-c-generator/private", 0);
 	getvarbool(&noconc, "#/info/x-binding-c-generator/noconcurrency", 0);
+	getvarbool(&nexpt, "#/info/x-binding-c-generator/noexcept", 0);
+	noexcpt = nexpt ? " noexcept" : "";
+	getvarint(&version, "#/info/x-binding-c-generator/version", 4, version_set);
+	getvarint(&cpp, "#/info/x-binding-c-generator/c++", 2, cpp_set);
+	getvarbool(&declare, "#/info/x-binding-c-generator/declare", 1);
 	getvar(&api, "#/info/title", "?");
 	getvar(&info, "#/info/description", NULL);
 }
@@ -471,6 +524,7 @@ void openapi_enum_verbs(void (*func)(const char *name, struct json_object *obj))
 
 void afbidl_getvars()
 {
+	int nexpt;
 	getvar(&mainctl, "#/tools/afb-genskel/mainctl", NULL);
 	getvar(&preinit, "#/tools/afb-genskel/preinit", NULL);
 	getvar(&init, "#/tools/afb-genskel/init", NULL);
@@ -483,6 +537,11 @@ void afbidl_getvars()
 	getvar(&requireapi, "#/tools/afb-genskel/require-api", NULL);
 	getvarbool(&priv, "#/tools/afb-genskel/private", 0);
 	getvarbool(&noconc, "#/tools/afb-genskel/noconcurrency", 0);
+	getvarbool(&nexpt, "#/tools/afb-genskel/noexcept", 0);
+	noexcpt = nexpt ? " noexcept" : "";
+	getvarint(&version, "#/tools/afb-genskel/version", 4, version_set);
+	getvarint(&cpp, "#/tools/afb-genskel/c++", 2, cpp_set);
+	getvarbool(&declare, "#/tools/afb-genskel/declare", 1);
 	getvar(&api, "#/info/apiname", NULL);
 	getvar(&api, "#/info/title", "?");
 	getvar(&info, "#/info/description", NULL);
@@ -590,45 +649,59 @@ void process(char *filename)
 	);
 	enum_verbs(declare_permissions);
 	print_perms();
-	enum_verbs(print_declare_verb);
+	if (declare) {
+		enum_verbs(print_declare_verb);
+		printf("\n");
+	}
 	printf(
-		"\n"
 		"static const struct afb_verb_v%d _afb_verbs_%s[] = {\n"
                 , version, capi
 	);
 	enum_verbs(print_struct_verb);
-	printf(
-		"    {\n"
-		"        .verb = NULL,\n"
-		"        .callback = NULL,\n"
-		"        .auth = NULL,\n"
-		"        .info = NULL,\n"
-	);
-	if (version >= 3)
+	if (version >= 4 && cpp >= 2) {
 		printf(
-			"        .vcbdata = NULL,\n"
+			"    afb::verbend()\n"
+			"};\n"
 		);
-	printf(
-		"        .session = 0"
-	);
-	if (version >= 3)
+	}
+	else {
 		printf(
-			",\n"
-			"        .glob = 0"
+			"    {\n"
+			"        .verb = NULL,\n"
+			"        .callback = NULL,\n"
+			"        .auth = NULL,\n"
+			"        .info = NULL,\n"
 		);
-	printf(
-		"\n"
-		"    }\n"
-		"};\n"
-	);
+		if (version >= 3)
+			printf(
+				"        .vcbdata = NULL,\n"
+			);
+		printf(
+			"        .session = 0"
+		);
+		if (version >= 3)
+			printf(
+				",\n"
+				"        .glob = 0"
+			);
+		printf(
+			"\n"
+			"    }\n"
+			"};\n"
+		);
+	}
 
-	if (TEST(preinit) || TEST(init) || TEST(onevent) || TEST(mainctl)) {
+	if (declare && (TEST(preinit) || TEST(init) || TEST(onevent) || TEST(mainctl))) {
 		printf("\n");
 		if (TEST(mainctl) && version >= 4) {
-			if (TEST(scope)) printf("%s ", scope);
-			printf("int %s(%s);\n",
-					mainctl, version==4 ? "afb_api_t api, afb_ctlid_t ctlid, afb_ctlarg_t ctlarg, void *userdata" 
-										: "");
+			if (TEST(scope))
+				printf("%s ", scope);
+			if (cpp < 2)
+				printf("int %s(afb_api_t api, afb_ctlid_t ctlid, const afb_ctlarg_t ctlarg, void *userdata);\n",
+					mainctl); 
+			else
+				printf("int %s(afb::api api, afb::ctlid ctlid, const afb::ctlarg ctlarg, void *userdata)%s;\n",
+					mainctl, noexcpt);
 		}
 		if (TEST(preinit) && version < 4) {
 			if (TEST(scope)) printf("%s ", scope);
@@ -644,58 +717,92 @@ void process(char *filename)
 					onevent, version==3 ? "afb_api_t api, " : "");
 		}
 	}
-	printf(
-		"\n"
-		"%sconst struct afb_binding_v%d %s%s = {\n"
-		"    .api = \"%s\",\n"
-		"    .specification = _afb_description_%s,\n"
-		"    .info = %s,\n"
-		"    .verbs = _afb_verbs_%s,\n"
-		, priv ? "static " : ""
-		, version
-		, priv ? "_afb_binding_" : version==4 ? "afbBindingV4" : version==3 ? "afbBindingV3" :"afbBindingV2"
-		, priv ? capi : ""
-		, api
-		, capi
-		, info ? str2c_inl(info) : "NULL"
-		, capi
-	);
-
-	if (version == 4) {
+	printf("\n");
+	if (version >= 4 && cpp >= 2) {
 		printf(
-			"    .mainctl = %s,\n"
-			, TEST(mainctl) ? mainctl : "NULL"
+			"%sconst afb_binding_t %s%s = binding<%s>(\n"
+			"    \"%s\",\n"
+			"    _afb_verbs_%s,\n"
+			"    %s,\n"
+			"    _afb_description_%s%s);\n"
+			/* var */
+			, priv ? "static " : ""
+			, priv ? "_afb_binding_" : version==4 ? "afbBindingV4" : version==3 ? "afbBindingV3" :"afbBindingV2"
+			, priv ? capi : ""
+			/* mainctl */
+			, TEST(mainctl) ? mainctl : "nullptr"
+			, api /* api */
+			, capi /* verbs */
+			, info ? str2c_inl(info) : "nullptr" /* info */
+			, capi /* description */
+			, noconc ? ",\n    true" : ""
 		);
-	} else {
-		printf(
-			"    .preinit = %s,\n"
-			"    .init = %s,\n"
-			"    .onevent = %s,\n"
-			, TEST(preinit) ? preinit : "NULL"
-			, TEST(init) ? init : "NULL"
-			, TEST(onevent) ? onevent : "NULL"
-		);
-
 	}
-
-	if (version >= 3)
+	else {
 		printf(
-			"    .userdata = NULL,\n"
-			"    .provide_class = %s%s%s,\n"
-			"    .require_class = %s%s%s,\n"
-			"    .require_api = %s%s%s,\n"
-			, TEST(provideclass) ? "\"" : "", TEST(provideclass) ? provideclass : "NULL", TEST(provideclass) ? "\"" : ""
-			, TEST(requireclass) ? "\"" : "", TEST(requireclass) ? requireclass : "NULL", TEST(requireclass) ? "\"" : ""
-			, TEST(requireapi) ? "\"" : "", TEST(requireapi) ? requireapi : "NULL", TEST(requireapi) ? "\"" : ""
+			"%sconst struct afb_binding_v%d %s%s = {\n"
+			"    .api = \"%s\",\n"
+			"    .specification = _afb_description_%s,\n"
+			"    .info = %s,\n"
+			"    .verbs = _afb_verbs_%s,\n"
+			, priv ? "static " : ""
+			, version
+			, priv ? "_afb_binding_" : version==4 ? "afbBindingV4" : version==3 ? "afbBindingV3" :"afbBindingV2"
+			, priv ? capi : ""
+			, api
+			, capi
+			, info ? str2c_inl(info) : "NULL"
+			, capi
 		);
 
+		if (version == 4) {
+			if (cpp < 2)
+				printf(
+					"    .mainctl = %s,\n"
+					, TEST(mainctl) ? mainctl : "NULL"
+				);
+			else {
+				if (TEST(mainctl))
+					printf(
+						"    .mainctl = afb::bindingcb<%s>,\n"
+						, TEST(mainctl) ? mainctl : "NULL"
+					);
+				else
+					printf(
+						"    .mainctl = nullptr,\n"
+					);
+			}
+		} else {
+			printf(
+				"    .preinit = %s,\n"
+				"    .init = %s,\n"
+				"    .onevent = %s,\n"
+				, TEST(preinit) ? preinit : "NULL"
+				, TEST(init) ? init : "NULL"
+				, TEST(onevent) ? onevent : "NULL"
+			);
 
-	printf(
-		"    .noconcurrency = %d\n"
-		"};\n"
-		"\n"
-		, !!noconc
-	);
+		}
+
+		if (version >= 3)
+			printf(
+				"    .userdata = NULL,\n"
+				"    .provide_class = %s%s%s,\n"
+				"    .require_class = %s%s%s,\n"
+				"    .require_api = %s%s%s,\n"
+				, TEST(provideclass) ? "\"" : "", TEST(provideclass) ? provideclass : "NULL", TEST(provideclass) ? "\"" : ""
+				, TEST(requireclass) ? "\"" : "", TEST(requireclass) ? requireclass : "NULL", TEST(requireclass) ? "\"" : ""
+				, TEST(requireapi) ? "\"" : "", TEST(requireapi) ? requireapi : "NULL", TEST(requireapi) ? "\"" : ""
+			);
+
+
+		printf(
+			"    .noconcurrency = %d\n"
+			"};\n"
+			, !!noconc
+		);
+	}
+	printf("\n");
 
 	/* clean up */
 	json_object_put(root);
@@ -711,15 +818,19 @@ int main(int ac, char **av)
 	r = w = 0;
 	while (av[r]) {
 		if (!(strcmp(av[r], "-x") && strcmp(av[r], "--cpp"))) {
-			cpp = 1;
+			cpp_set = 0;
+			cpp++;
 			r++;
 		} else if (!strcmp(av[r], "-2")) {
+			version_set = 0;
 			version = 2;
 			r++;
 		} else if (!strcmp(av[r], "-3")) {
+			version_set = 0;
 			version = 3;
 			r++;
 		} else if (!strcmp(av[r], "-4")) {
+			version_set = 0;
 			version = 4;
 			r++;
 		} else {
