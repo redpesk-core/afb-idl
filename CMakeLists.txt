@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project(afb-idl
 	DESCRIPTION "Interface Description Language and tools for Micro-service Framework"
-	VERSION 0.3.1
+	VERSION 0.4.0
 	LANGUAGES C
 )
 set(HOMEPAGE_URL "https://github.com/redpesk-core/afb-idl")
@@ -39,6 +39,7 @@ pkg_check_modules(json-c REQUIRED json-c)
 
 ###########################################################################
 
+add_compile_options(-DVERSION="${PROJECT_VERSION}")
 add_library(utils STATIC exprefs.c  getref.c  json2c.c)
 target_compile_options(utils PRIVATE ${json-c_CFLAGS})
 macro(addexe NAME)
