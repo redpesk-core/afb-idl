@@ -721,7 +721,7 @@ void process(char *filename)
 	printf("\n");
 	if (version >= 4 && cpp >= 2) {
 		printf(
-			"%sconst afb_binding_t %s%s = binding<%s>(\n"
+			"%sconst afb_binding_t %s%s = afb::binding<%s>(\n"
 			"    \"%s\",\n"
 			"    _afb_verbs_%s,\n"
 			"    %s,\n"
@@ -756,23 +756,11 @@ void process(char *filename)
 			, capi
 		);
 
-		if (version == 4) {
-			if (cpp < 2)
-				printf(
-					"    .mainctl = %s,\n"
-					, TEST(mainctl) ? mainctl : "NULL"
-				);
-			else {
-				if (TEST(mainctl))
-					printf(
-						"    .mainctl = afb::bindingcb<%s>,\n"
-						, TEST(mainctl) ? mainctl : "NULL"
-					);
-				else
-					printf(
-						"    .mainctl = nullptr,\n"
-					);
-			}
+		if (version >= 4) {
+			printf(
+				"    .mainctl = %s,\n"
+				, TEST(mainctl) ? mainctl : "NULL"
+			);
 		} else {
 			printf(
 				"    .preinit = %s,\n"
