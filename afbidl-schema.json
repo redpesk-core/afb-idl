@@ -1,7 +1,7 @@
 {
 	"$schema": "http://json-schema.org/schema#",
-	"$id": "urn:AGL:afbidl:schema",
-	"title": "AGL Framework Binding Interface Description",
+	"$id": "urn:iot.bzh:afbidl:schema",
+	"title": "Framework Binding Interface Description",
 
 	"type": "object",
 	"required": ["afbidl", "info", "verbs"],
