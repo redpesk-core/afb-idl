@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project(afb-idl
 	DESCRIPTION "Interface Description Language and tools for Micro-service Framework"
-	VERSION 0.4.1
+	VERSION 0.4.2
 	LANGUAGES C
 )
 set(HOMEPAGE_URL "https://github.com/redpesk-core/afb-idl")
