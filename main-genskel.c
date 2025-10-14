@@ -491,7 +491,7 @@ void openapi_getvars()
 	getvarbool(&nexpt, "#/info/x-binding-c-generator/noexcept", 0);
 	noexcpt = nexpt ? " noexcept" : "";
 	getvarint(&version, "#/info/x-binding-c-generator/version", 4, version_set);
-	getvarint(&cpp, "#/info/x-binding-c-generator/c++", 2, cpp_set);
+	getvarint(&cpp, "#/info/x-binding-c-generator/c++", 0, cpp_set);
 	getvarbool(&declare, "#/info/x-binding-c-generator/declare", 1);
 	getvar(&api, "#/info/title", "?");
 	getvar(&info, "#/info/description", NULL);
@@ -540,7 +540,7 @@ void afbidl_getvars()
 	getvarbool(&nexpt, "#/tools/afb-genskel/noexcept", 0);
 	noexcpt = nexpt ? " noexcept" : "";
 	getvarint(&version, "#/tools/afb-genskel/version", 4, version_set);
-	getvarint(&cpp, "#/tools/afb-genskel/c++", 2, cpp_set);
+	getvarint(&cpp, "#/tools/afb-genskel/c++", 0, cpp_set);
 	getvarbool(&declare, "#/tools/afb-genskel/declare", 1);
 	getvar(&api, "#/info/apiname", NULL);
 	getvar(&api, "#/info/title", "?");
